@@ -6,10 +6,10 @@ import cflib.crtp
 import numpy as np
 from cflib.crazyflie.log import LogConfig
 from cflib.crazyflie.swarm import CachedCfFactory, Swarm
-from controller.controller import Controller
-from utils import FlightZone
 
-from lighthouseDataHelper import LighthouseDataHelper
+from controller import Controller
+from utils.lighthouseDataHelper import LighthouseDataHelper
+from utils.utils import FlightZone
 
 logger = logging.getLogger(__name__)
 
