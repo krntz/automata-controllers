@@ -68,16 +68,16 @@ class CrazyflieController(Controller):
 
         self.swarm_flying = False
 
-        self.swarm_take_off()
-
         self.swarm.parallel_safe(self.__start_position_logging)
 
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         logger.debug("Shutting down swarm")
-        self.swarm.parallel_safe(self.__land)
-        time.sleep(2)
+
+        if self.swarm_flying:
+            self.swarm.parallel_safe(self.__land)
+            time.sleep(2)
 
         self.swarm.close_links()
 
@@ -128,15 +128,17 @@ class CrazyflieController(Controller):
             raise RuntimeError("Lighthouse deck not detected!")
 
     def __take_off(self, scf):
+        logger.debug("Drone with URI {} taking off".format(scf._link_uri))
         commander = scf.cf.high_level_commander
 
         commander.takeoff(self.flight_zone.floor_offset, 2.0)
         time.sleep(2)
 
     def swarm_take_off(self):
-        logger.info("Swarm is taking off")
+        logger.debug("Trying to run take off sequence")
 
         if not self.swarm_flying:
+            logger.info("Swarm is taking off")
             self.swarm.sequential(self.__take_off)
             self.swarm_flying = True
             time.sleep(2)
@@ -144,11 +146,20 @@ class CrazyflieController(Controller):
             raise RuntimeError("Swarm is already flying!")
 
     def __land(self, scf):
-        commander = scf.cf.high_level_commander
+        current_height = self.positions[scf._link_uri][2]
 
-        commander.land(0.0, 4.0)
-        time.sleep(3)
-        commander.stop()
+        cmd = scf.cf.commander
+
+        num_steps = 10  # How many steps the landing procedure should be. Higher = smoother
+
+        for z in range(num_steps):
+            cmd.send_hover_setpoint(
+                0, 0, 0, (num_steps - z) / (num_steps / current_height))
+            time.sleep(0.1)
+
+        cmd.send_stop_setpoint()
+        cmd.send_notify_setpoint_stop()
+        time.sleep(2)
 
     def swarm_land(self, emergency_land=False):
         if self.swarm_flying or emergency_land:
