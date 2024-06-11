@@ -146,6 +146,7 @@ class CrazyflieController(Controller):
             raise RuntimeError("Swarm is already flying!")
 
     def __land(self, scf):
+        logger.debug("Drone with URI {} landing".format(scf._link_uri))
         current_height = self.positions[scf._link_uri][2]
 
         cmd = scf.cf.commander
@@ -196,9 +197,10 @@ class CrazyflieController(Controller):
 
     def set_swarm_velocities(self, velocities, yaw_rate):
         """
-        Sets the velocity of each drone in the swarm
+        Sets the world velocity of each drone in the swarm
 
-        :param velocities: Dict of URIs and corresponding velocities
+        :param velocities: Dict of URIs and corresponding velocities (m/s)
+        :param yaw_rate: Turning rate of the drones (degrees/s)
         """
 
         if not self.swarm_flying:
