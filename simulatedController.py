@@ -11,6 +11,7 @@ Simulated automata controller, acts just like the crazyflieController but
 without the need for drone. Useful for testing/development.
 """
 
+
 class SimulatedController(Controller):
     """
     Controller class for setting up, managing, and shutting down swarms of Crazyflies
@@ -60,7 +61,8 @@ class SimulatedController(Controller):
             raise RuntimeError("Swarm must be flying to be moved")
 
         if time_to_move == None:
-            raise ValueError("time_to_move must be set for physical and simulated systems")
+            raise ValueError(
+                "time_to_move must be set for physical and simulated systems")
 
         logger.info("Moving swarm")
         time.sleep(time_to_move)

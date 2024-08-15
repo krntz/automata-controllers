@@ -35,3 +35,18 @@ class Controller(abc.ABC):
     @abc.abstractmethod
     def set_swarm_velocities(self):
         """Set the velocities for x, y, and z of each drone in the swarm"""
+
+    def distance_to_point(self, uid, point):
+        """
+        Returns the distance to the given point from the drone with the given UID
+        """
+
+        return np.linalg.norm(self.positions[uid] - point)
+
+    def distance_to_swarm(self, uid):
+        """
+        Returns a list of distances between the drone with the given UID and
+        every other drone in the swarm
+        """
+
+        return [self.distance_to_point(self.positions[uid], pos) for pos in self.positions]
