@@ -36,9 +36,25 @@ class Controller(abc.ABC):
     def set_swarm_velocities(self):
         """Set the velocities for x, y, and z of each drone in the swarm"""
 
+    def distance_to_2D_point(self, uid, point):
+        """
+        Returns 2D euclidean distance to the given point from the drone with the given UID
+
+        This is useful if you don't care about any difference in height
+
+        If the drone's position has 3 coordinates, the z coordinate will be ignored
+        """
+
+        drone_position = self.positions[uid]
+
+        if drone_position.shape[0] == 3:
+            drone_position = drone_position[0:2]
+
+        return np.linalg.norm(drone_position - point)
+
     def distance_to_point(self, uid, point):
         """
-        Returns the distance to the given point from the drone with the given UID
+        Returns the euclidean distance to the given point from the drone with the given UID
         """
 
         return np.linalg.norm(self.positions[uid] - point)
