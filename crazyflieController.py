@@ -68,9 +68,6 @@ class CrazyflieController(Controller):
 
         self.swarm_flying = False
 
-        logger.info("Starting position logging")
-        self.swarm.parallel_safe(self.__start_position_logging)
-
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
