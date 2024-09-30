@@ -23,10 +23,7 @@ class CrazyflieController(Controller):
     Controller class for setting up, managing, and shutting down swarms of Crazyflies
     """
 
-    def __init__(self,
-                 uris,
-                 flight_zone,
-                 config):
+    def __init__(self, uris, flight_zone, config):
         super().__init__(uris, flight_zone)
 
         self.swarm_flying = False
@@ -36,7 +33,7 @@ class CrazyflieController(Controller):
 
         cflib.crtp.init_drivers()
 
-        factory = CachedCfFactory(rw_cache='./cache')
+        factory = CachedCfFactory(rw_cache="./cache")
 
         self.swarm = Swarm(uris, factory=factory)
 
@@ -61,6 +58,9 @@ class CrazyflieController(Controller):
         else:
             logger.debug("Only one drone found, assuming it is calibrated")
 
+        logger.info("Starting position logging")
+        self.swarm.parallel_safe(self.__start_position_logging)
+
     def __enter__(self):
         logger.debug("Starting swarm")
 
@@ -68,6 +68,7 @@ class CrazyflieController(Controller):
 
         self.swarm_flying = False
 
+        logger.info("Starting position logging")
         self.swarm.parallel_safe(self.__start_position_logging)
 
         return self
@@ -91,22 +92,20 @@ class CrazyflieController(Controller):
         3. Resets estimators and waits for good lock on positions
         """
         logger.info("Running pre-flight safety checks")
-        logger.info(
-            "Running light check. Ensure red light on all connected drones.")
+        logger.info("Running light check. Ensure red light on all connected drones.")
         self.swarm.parallel_safe(self.__light_check)
 
         # TODO: This aint working for some reason...
         # logger.info("Checking for Lighthouse deck")
         # self.swarm.parallel_safe(self.__deck_check)
 
-        logger.info(
-            "Resetting estimators. Will block until good lock on position.")
+        logger.info("Resetting estimators. Will block until good lock on position.")
         self.swarm.reset_estimators()
 
     def __light_check(self, scf):
-        scf.cf.param.set_value('led.bitmask', 255)
+        scf.cf.param.set_value("led.bitmask", 255)
         time.sleep(2)
-        scf.cf.param.set_value('led.bitmask', 0)
+        scf.cf.param.set_value("led.bitmask", 0)
         time.sleep(2)
 
     def __param_deck_lighthouse(self, _, value_str):
@@ -116,12 +115,11 @@ class CrazyflieController(Controller):
             self.deck_attached_event.set()
 
     def __deck_check(self, scf):
-
         self.deck_attached_event = Event()
 
-        scf.cf.param.add_update_callback(group="deck",
-                                         name="bcLighthouse4",
-                                         cb=self.__param_deck_lighthouse)
+        scf.cf.param.add_update_callback(
+            group="deck", name="bcLighthouse4", cb=self.__param_deck_lighthouse
+        )
         time.sleep(1)
 
         if not self.deck_attached_event.wait(timeout=5):
@@ -147,19 +145,23 @@ class CrazyflieController(Controller):
 
     def __land(self, scf):
         logger.debug("Drone with URI {} landing".format(scf._link_uri))
-        current_height = self.positions[scf._link_uri][2]
+        commander = scf.cf.high_level_commander
 
-        cmd = scf.cf.commander
+        commander.land(0.05, 2.0)
 
-        num_steps = 10  # How many steps the landing procedure should be. Higher = smoother
+        # current_height = self.positions[scf._link_uri][2]
 
-        for z in range(num_steps):
-            cmd.send_hover_setpoint(
-                0, 0, 0, (num_steps - z) / (num_steps / current_height))
-            time.sleep(0.1)
+        # cmd = scf.cf.commander
 
-        cmd.send_stop_setpoint()
-        cmd.send_notify_setpoint_stop()
+        # num_steps = 10  # How many steps the landing procedure should be. Higher = smoother
+
+        # for z in range(num_steps):
+        #    cmd.send_hover_setpoint(
+        #        0, 0, 0, (num_steps - z) / (num_steps / current_height))
+        #    time.sleep(0.1)
+
+        # cmd.send_stop_setpoint()
+        # cmd.send_notify_setpoint_stop()
         time.sleep(2)
 
     def swarm_land(self, emergency_land=False):
@@ -184,8 +186,10 @@ class CrazyflieController(Controller):
 
         logger.info("Moving swarm")
 
-        args = {uri: [pos[0], pos[1], pos[2], yaw, time_to_move, relative]
-                for uri, pos in positions.items()}
+        args = {
+            uri: [pos[0], pos[1], pos[2], yaw, time_to_move, relative]
+            for uri, pos in positions.items()
+        }
 
         self.swarm.parallel_safe(self.__move, args)
         time.sleep(time_to_move)
@@ -206,20 +210,22 @@ class CrazyflieController(Controller):
         if not self.swarm_flying:
             raise RuntimeError("Swarm must be flying")
 
-        args = {uri: [vel[0], vel[1], vel[2], yaw_rate]
-                for uri, vel in velocities.items()}
+        args = {
+            uri: [vel[0], vel[1], vel[2], yaw_rate] for uri, vel in velocities.items()
+        }
 
         self.swarm.parallel_safe(self.__set_velocity, args)
 
     def __position_callback(self, timestamp, data, log_conf):
         self.positions[log_conf.cf.link_uri] = np.array(
-            [data['kalman.stateX'], data['kalman.stateY'], data['kalman.stateZ']])
+            [data["kalman.stateX"], data["kalman.stateY"], data["kalman.stateZ"]]
+        )
 
     def __start_position_logging(self, scf):
-        log_conf = LogConfig(name='Position', period_in_ms=10)
-        log_conf.add_variable('kalman.stateX', 'float')
-        log_conf.add_variable('kalman.stateY', 'float')
-        log_conf.add_variable('kalman.stateZ', 'float')
+        log_conf = LogConfig(name="Position", period_in_ms=10)
+        log_conf.add_variable("kalman.stateX", "float")
+        log_conf.add_variable("kalman.stateY", "float")
+        log_conf.add_variable("kalman.stateZ", "float")
 
         scf.cf.log.add_config(log_conf)
         log_conf.data_received_cb.add_callback(self.__position_callback)
